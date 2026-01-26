@@ -15,23 +15,23 @@ A single-user web application for tracking Rummy game scores. The app runs entir
 | Drop Score | Points assigned when a player drops before playing any turn | 25 |
 | Middle Drop Score | Points for dropping after playing at least one turn | 50 |
 | Max Score Per Game | Maximum score a player can have in a single round | 80 |
-| Max Match Score | Score limit to exit the match (player is "out") | 101 |
+| Max Game Score | Score limit to exit the game (player is "out") | 101 |
 
 #### 1.2 Global Player List
 - Add new players (name required)
 - Edit player names
 - Delete players (with confirmation)
-- Players persist across matches
+- Players persist across games
 - Quick-select players when starting a new game
 
 ---
 
 ### 2. Game Play
 
-#### 2.1 Start a Match
+#### 2.1 Start a Game
 - Select players from global player list (or add new ones)
 - Minimum 2 players, no maximum
-- Option to use default settings or customize for this match
+- Option to use default settings or customize for this game
 - Game variant: 13-card Rummy
 
 #### 2.2 Score Entry
@@ -43,9 +43,9 @@ A single-user web application for tracking Rummy game scores. The app runs entir
 #### 2.3 Scoreboard View
 - **By Round**: Table showing each round's scores for all players
 - **Running Total**: Current cumulative score for each player
-- Visual indicator for players approaching max match score
-- Highlight players who are "out" (exceeded max match score)
-- Match continues until only one player remains (the winner)
+- Visual indicator for players approaching max game score
+- Highlight players who are "out" (exceeded max game score)
+- Game continues until only one player remains (the winner)
 - No joint winners - last player standing wins
 
 #### 2.4 Score Editing
@@ -59,21 +59,21 @@ A single-user web application for tracking Rummy game scores. The app runs entir
 
 #### 3.1 Drop Eligibility
 A player can drop (early exit from a round) **only if**:
-- (Max Match Score - Current Score) > Drop Score
+- (Max Game Score - Current Score) > Drop Score
 - Example: With score 75, margin is 101 - 75 = 26. Since 26 > 25, player CAN drop.
 - Example: With score 76, margin is 101 - 76 = 25. Since 25 is NOT > 25, player CANNOT drop.
 
 #### 3.2 Player Out
-A player is **out** when their current score reaches or exceeds max match score (101).
+A player is **out** when their current score reaches or exceeds max game score (101).
 
 #### 3.3 Re-entry Rule
 A player who is out can re-enter **only if**:
 - The player with the next highest score still has a drop chance
-- Drop chance exists when: (Max Match Score - Next Highest Score) > Drop Score
+- Drop chance exists when: (Max Game Score - Next Highest Score) > Drop Score
 - Re-entering player takes the score of the next highest player
 
 **Example (Re-entry allowed):**
-- Max Match Score: 101, Drop Score: 25
+- Max Game Score: 101, Drop Score: 25
 - Player A is out with 105 points
 - Player B (next highest) has 70 points
 - Player B's margin: 101 - 70 = 31
@@ -88,27 +88,27 @@ A player who is out can re-enter **only if**:
 
 ---
 
-### 4. Match History
+### 4. Game History
 
-#### 4.1 Match List
-- List of all completed matches
+#### 4.1 Game List
+- List of all completed games
 - Show date, players, winner
 - Sort by date (newest first)
 
-#### 4.2 Match Details
-- View complete scorecard of any past match
+#### 4.2 Game Details
+- View complete scorecard of any past game
 - Round-by-round breakdown
 - Final standings
 
 #### 4.3 Data Management
-- Delete individual match history
+- Delete individual game history
 - Clear all history (with confirmation)
-- Export match data (optional - JSON format)
+- Export game data (optional - JSON format)
 
 #### 4.4 Player Statistics
-- Total matches played
+- Total games played
 - Wins / Win rate
-- Average score per match
+- Average score per game
 - Total drops / middle drops
 
 ---
@@ -124,15 +124,15 @@ A player who is out can re-enter **only if**:
 ### Layout
 - **Primary Device**: Phone (portrait orientation)
 - **Optimized For**: 4-6 players
-- **Navigation**: Fixed bottom bar with 4 tabs (Home, Match, History, Settings)
+- **Navigation**: Fixed bottom bar with 4 tabs (Home, Game, History, Settings)
 - **Scoreboard**: Vertical list of player cards
 
 ### Navigation & App Launch
-- **On Launch**: If active match exists, go directly to scoreboard; otherwise show home
+- **On Launch**: If active game exists, go directly to scoreboard; otherwise show home
 - **Bottom Tabs**:
-  1. Home - Quick actions, active match summary
-  2. Match - Active scoreboard (or prompt to start)
-  3. History - Past matches
+  1. Home - Quick actions, active game summary
+  2. Game - Active scoreboard (or prompt to start)
+  3. History - Past games
   4. Settings - Defaults and player management
 
 ### Key Design Principles (Things to Avoid)
@@ -145,16 +145,16 @@ A player who is out can re-enter **only if**:
 ## Screens
 
 ### 1. Home Screen
-- If match active: Show match summary card with "Continue" button prominent
-- If no match: Large "Start New Match" button
+- If game active: Show game summary card with "Continue" button prominent
+- If no game: Large "Start New Game" button
 - Quick stats preview (optional)
 
-### 2. New Match Setup
+### 2. New Game Setup
 - Select players from global list (checkboxes) or add new
-- Show/edit match settings (pre-filled with defaults)
-- "Start Match" button
+- Show/edit game settings (pre-filled with defaults)
+- "Start Game" button
 
-### 3. Active Match (Scoreboard)
+### 3. Active Game (Scoreboard)
 - **Player Cards** (vertical list):
   - Player name + rank (1st, 2nd, 3rd...)
   - Current total score (large)
@@ -173,14 +173,14 @@ A player who is out can re-enter **only if**:
 - Validation against max score per game (80)
 - Submit button to save round
 
-### 5. Match History
+### 5. Game History
 - Card list: each card shows date, players, winner
 - Tap card to view full scorecard (screenshot-ready)
 - Delete option (no confirmation needed for individual)
 - Clear all requires confirmation
 
 ### 6. Settings
-- **Game Defaults** section: edit drop score, middle drop, max per game, max match
+- **Game Defaults** section: edit drop score, middle drop, max per game, max game
 - **Player Management** section:
   - List of all players
   - Add player (name field + save)
@@ -188,7 +188,7 @@ A player who is out can re-enter **only if**:
   - Delete player (swipe or tap delete icon, no confirmation)
 
 ### 7. Player Statistics (accessed from Settings or History)
-- Total matches played
+- Total games played
 - Wins / Win rate percentage
 - Average final score
 - Total drops / middle drops
@@ -198,11 +198,11 @@ A player who is out can re-enter **only if**:
 ## Interactions & Feedback
 
 ### Haptic Feedback (Mobile)
-- Vibrate on: score submit, player goes out, match ends
+- Vibrate on: score submit, player goes out, game ends
 
 ### Confirmations Required
-- Ending a match mid-game
-- Clearing all match history
+- Ending a game mid-game
+- Clearing all game history
 - NOT required for: player management, individual history delete
 
 ### Notifications
@@ -259,7 +259,7 @@ A player who is out can re-enter **only if**:
 }
 ```
 
-### Match
+### Game
 ```
 {
   id: string,
@@ -268,7 +268,7 @@ A player who is out can re-enter **only if**:
     dropScore: number,
     middleDropScore: number,
     maxScorePerGame: number,
-    maxMatchScore: number
+    maxGameScore: number
   },
   rounds: [
     {
@@ -291,7 +291,7 @@ A player who is out can re-enter **only if**:
     dropScore: number,
     middleDropScore: number,
     maxScorePerGame: number,
-    maxMatchScore: number
+    maxGameScore: number
   }
 }
 ```

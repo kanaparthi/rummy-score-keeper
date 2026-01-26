@@ -12,16 +12,58 @@ const DEFAULT_SETTINGS = {
   dropScore: 25,
   middleDropScore: 50,
   maxScorePerGame: 80,
-  maxMatchScore: 101
+  maxGameScore: 101
 };
 
 // --- Storage Keys ---
 const STORAGE_KEYS = {
   settings: 'rummy_settings',
   players: 'rummy_players',
-  activeMatch: 'rummy_active_match',
-  matchHistory: 'rummy_match_history'
+  activeGame: 'rummy_active_game',
+  gameHistory: 'rummy_game_history'
 };
+
+// --- Storage Migration (from old "match" keys to new "game" keys) ---
+function migrateStorage() {
+  // Migrate active game
+  const oldActiveGame = localStorage.getItem('rummy_active_match');
+  if (oldActiveGame && !localStorage.getItem(STORAGE_KEYS.activeGame)) {
+    const data = JSON.parse(oldActiveGame);
+    // Migrate maxMatchScore to maxGameScore in settings
+    if (data.settings && data.settings.maxMatchScore !== undefined) {
+      data.settings.maxGameScore = data.settings.maxMatchScore;
+      delete data.settings.maxMatchScore;
+    }
+    localStorage.setItem(STORAGE_KEYS.activeGame, JSON.stringify(data));
+    localStorage.removeItem('rummy_active_match');
+  }
+
+  // Migrate game history
+  const oldHistory = localStorage.getItem('rummy_match_history');
+  if (oldHistory && !localStorage.getItem(STORAGE_KEYS.gameHistory)) {
+    const history = JSON.parse(oldHistory);
+    // Migrate maxMatchScore to maxGameScore in each game's settings
+    history.forEach(game => {
+      if (game.settings && game.settings.maxMatchScore !== undefined) {
+        game.settings.maxGameScore = game.settings.maxMatchScore;
+        delete game.settings.maxMatchScore;
+      }
+    });
+    localStorage.setItem(STORAGE_KEYS.gameHistory, JSON.stringify(history));
+    localStorage.removeItem('rummy_match_history');
+  }
+
+  // Migrate settings
+  const settings = localStorage.getItem(STORAGE_KEYS.settings);
+  if (settings) {
+    const data = JSON.parse(settings);
+    if (data.maxMatchScore !== undefined) {
+      data.maxGameScore = data.maxMatchScore;
+      delete data.maxMatchScore;
+      localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(data));
+    }
+  }
+}
 
 // --- Storage Helpers ---
 function save(key, data) {
@@ -50,24 +92,24 @@ function savePlayers(players) {
   save(STORAGE_KEYS.players, players);
 }
 
-function getActiveMatch() {
-  return load(STORAGE_KEYS.activeMatch, null);
+function getActiveGame() {
+  return load(STORAGE_KEYS.activeGame, null);
 }
 
-function saveActiveMatch(match) {
-  save(STORAGE_KEYS.activeMatch, match);
+function saveActiveGame(game) {
+  save(STORAGE_KEYS.activeGame, game);
 }
 
-function clearActiveMatch() {
-  localStorage.removeItem(STORAGE_KEYS.activeMatch);
+function clearActiveGame() {
+  localStorage.removeItem(STORAGE_KEYS.activeGame);
 }
 
-function getMatchHistory() {
-  return load(STORAGE_KEYS.matchHistory, []);
+function getGameHistory() {
+  return load(STORAGE_KEYS.gameHistory, []);
 }
 
-function saveMatchHistory(history) {
-  save(STORAGE_KEYS.matchHistory, history);
+function saveGameHistory(history) {
+  save(STORAGE_KEYS.gameHistory, history);
 }
 
 // --- ID Generator ---
@@ -87,7 +129,7 @@ function navigateTo(page) {
   // Update page title
   const titles = {
     home: 'Rummy Score',
-    match: 'Match',
+    game: 'Game',
     history: 'History',
     settings: 'Settings'
   };
@@ -104,8 +146,8 @@ function renderPage(page) {
     case 'home':
       renderHomePage(content);
       break;
-    case 'match':
-      renderMatchPage(content);
+    case 'game':
+      renderGamePage(content);
       break;
     case 'history':
       renderHistoryPage(content);
@@ -118,42 +160,42 @@ function renderPage(page) {
 
 // --- Home Page ---
 function renderHomePage(container) {
-  const activeMatch = getActiveMatch();
+  const activeGame = getActiveGame();
 
-  if (activeMatch) {
-    // Show active match summary
-    const playerNames = activeMatch.players.map(p => p.name).join(', ');
-    const activePlayers = activeMatch.players.filter(p => !p.isOut).length;
-    const roundCount = activeMatch.rounds.length;
+  if (activeGame) {
+    // Show active game summary
+    const playerNames = activeGame.players.map(p => p.name).join(', ');
+    const activePlayers = activeGame.players.filter(p => !p.isOut).length;
+    const roundCount = activeGame.rounds.length;
 
     container.innerHTML = `
       <div class="page">
-        <div class="match-summary">
-          <div class="match-summary-title">Match in Progress</div>
-          <div class="match-summary-players">${playerNames}</div>
-          <div class="match-summary-stats">
-            <div class="match-summary-stat">
-              <div class="match-summary-stat-value">${roundCount}</div>
-              <div class="match-summary-stat-label">Rounds</div>
+        <div class="game-summary">
+          <div class="game-summary-title">Game in Progress</div>
+          <div class="game-summary-players">${playerNames}</div>
+          <div class="game-summary-stats">
+            <div class="game-summary-stat">
+              <div class="game-summary-stat-value">${roundCount}</div>
+              <div class="game-summary-stat-label">Rounds</div>
             </div>
-            <div class="match-summary-stat">
-              <div class="match-summary-stat-value">${activePlayers}</div>
-              <div class="match-summary-stat-label">Active</div>
+            <div class="game-summary-stat">
+              <div class="game-summary-stat-value">${activePlayers}</div>
+              <div class="game-summary-stat-label">Active</div>
             </div>
           </div>
-          <button class="btn btn-continue" onclick="navigateTo('match')">Continue Match</button>
+          <button class="btn btn-continue" onclick="navigateTo('game')">Continue Game</button>
         </div>
       </div>
     `;
   } else {
-    // Show start new match
+    // Show start new game
     container.innerHTML = `
       <div class="page">
         <div class="home-hero">
           <h2 class="home-hero-title">Rummy Score Keeper</h2>
           <p class="home-hero-subtitle">Track your 13-card Rummy games</p>
-          <button class="btn btn-primary btn-large btn-full" onclick="showNewMatchSetup()">
-            Start New Match
+          <button class="btn btn-primary btn-large btn-full" onclick="showNewGameSetup()">
+            Start New Game
           </button>
         </div>
       </div>
@@ -161,34 +203,34 @@ function renderHomePage(container) {
   }
 }
 
-// --- Match Page ---
-function renderMatchPage(container) {
-  const activeMatch = getActiveMatch();
+// --- Game Page ---
+function renderGamePage(container) {
+  const activeGame = getActiveGame();
 
-  if (!activeMatch) {
+  if (!activeGame) {
     container.innerHTML = `
       <div class="page">
         <div class="empty-state">
-          <div class="empty-state-text">No active match</div>
-          <button class="btn btn-primary" onclick="showNewMatchSetup()">Start New Match</button>
+          <div class="empty-state-text">No active game</div>
+          <button class="btn btn-primary" onclick="showNewGameSetup()">Start New Game</button>
         </div>
       </div>
     `;
     return;
   }
 
-  renderScoreboard(container, activeMatch);
+  renderScoreboard(container, activeGame);
 }
 
-function renderScoreboard(container, match) {
+function renderScoreboard(container, game) {
   // Sort players by score (lowest first = winning)
-  const sortedPlayers = [...match.players].sort((a, b) => a.totalScore - b.totalScore);
+  const sortedPlayers = [...game.players].sort((a, b) => a.totalScore - b.totalScore);
 
   let playersHtml = sortedPlayers.map((player, index) => {
     const rank = index + 1;
     const isOut = player.isOut;
-    const margin = match.settings.maxMatchScore - player.totalScore;
-    const isWarning = !isOut && margin <= match.settings.dropScore;
+    const margin = game.settings.maxGameScore - player.totalScore;
+    const isWarning = !isOut && margin <= game.settings.dropScore;
     const isExpanded = expandedPlayerId === player.id;
 
     let statusClass = '';
@@ -198,10 +240,10 @@ function renderScoreboard(container, match) {
     // Build round history for this player
     let roundsHtml = '';
     const reentryRounds = player.reentryRounds || [];
-    if (isExpanded && match.rounds.length > 0) {
+    if (isExpanded && game.rounds.length > 0) {
       roundsHtml = `
         <div class="player-rounds">
-          ${match.rounds.map((round, i) => {
+          ${game.rounds.map((round, i) => {
             const score = round.scores[player.id];
             if (score === undefined) return '';
             const isReentry = reentryRounds.includes(round.roundNumber);
@@ -242,27 +284,27 @@ function renderScoreboard(container, match) {
     `;
   }).join('');
 
-  const activePlayers = match.players.filter(p => !p.isOut);
-  const isMatchOver = activePlayers.length <= 1;
+  const activePlayers = game.players.filter(p => !p.isOut);
+  const isGameOver = activePlayers.length <= 1;
 
   container.innerHTML = `
     <div class="page">
-      <div class="section-header">Round ${match.rounds.length + 1}</div>
+      <div class="section-header">Round ${game.rounds.length + 1}</div>
       <div class="players-list">
         ${playersHtml}
       </div>
-      ${isMatchOver ? `
-        <div class="match-over">
-          <h3>Match Complete!</h3>
+      ${isGameOver ? `
+        <div class="game-over">
+          <h3>Game Complete!</h3>
           <p>${activePlayers[0]?.name || 'No one'} wins!</p>
-          <button class="btn btn-primary btn-full mt-16" onclick="endMatch()">End Match</button>
+          <button class="btn btn-primary btn-full mt-16" onclick="endGame()">End Game</button>
         </div>
       ` : `
         <button class="btn btn-primary btn-full btn-large mt-16" onclick="showScoreEntry()">
           Add Round Scores
         </button>
-        <button class="btn btn-secondary btn-full mt-16" onclick="abandonMatch()">
-          End Match Early
+        <button class="btn btn-secondary btn-full mt-16" onclick="abandonGame()">
+          End Game Early
         </button>
       `}
     </div>
@@ -271,9 +313,9 @@ function renderScoreboard(container, match) {
 
 function togglePlayerExpand(playerId) {
   expandedPlayerId = expandedPlayerId === playerId ? null : playerId;
-  const match = getActiveMatch();
-  if (match) {
-    renderScoreboard(document.getElementById('main-content'), match);
+  const game = getActiveGame();
+  if (game) {
+    renderScoreboard(document.getElementById('main-content'), game);
   }
 }
 
@@ -292,11 +334,11 @@ function cancelLongPress() {
 }
 
 async function editRoundScore(roundIndex, playerId) {
-  const match = getActiveMatch();
-  if (!match) return;
+  const game = getActiveGame();
+  if (!game) return;
 
-  const round = match.rounds[roundIndex];
-  const player = match.players.find(p => p.id === playerId);
+  const round = game.rounds[roundIndex];
+  const player = game.players.find(p => p.id === playerId);
   if (!round || !player) return;
 
   const currentScore = round.scores[playerId];
@@ -314,8 +356,8 @@ async function editRoundScore(roundIndex, playerId) {
     return;
   }
 
-  if (parsed > match.settings.maxScorePerGame) {
-    showToast(`Score cannot exceed ${match.settings.maxScorePerGame}`, 'error');
+  if (parsed > game.settings.maxScorePerGame) {
+    showToast(`Score cannot exceed ${game.settings.maxScorePerGame}`, 'error');
     return;
   }
 
@@ -327,50 +369,50 @@ async function editRoundScore(roundIndex, playerId) {
   player.totalScore = player.totalScore - oldScore + parsed;
 
   // Check if player status changed
-  if (player.totalScore >= match.settings.maxMatchScore && !player.isOut) {
+  if (player.totalScore >= game.settings.maxGameScore && !player.isOut) {
     player.isOut = true;
-    checkReentry(match, player);
-  } else if (player.totalScore < match.settings.maxMatchScore && player.isOut) {
+    checkReentry(game, player);
+  } else if (player.totalScore < game.settings.maxGameScore && player.isOut) {
     // Player came back under the limit due to edit
     player.isOut = false;
   }
 
-  saveActiveMatch(match);
+  saveActiveGame(game);
   showToast('Score updated', 'success');
-  renderScoreboard(document.getElementById('main-content'), match);
+  renderScoreboard(document.getElementById('main-content'), game);
 }
 
 // --- History Page ---
 function renderHistoryPage(container) {
-  const history = getMatchHistory();
+  const history = getGameHistory();
 
   if (history.length === 0) {
     container.innerHTML = `
       <div class="page">
         <div class="empty-state">
-          <div class="empty-state-text">No match history yet</div>
+          <div class="empty-state-text">No game history yet</div>
         </div>
       </div>
     `;
     return;
   }
 
-  const historyHtml = history.map((match, index) => {
-    const date = new Date(match.completedAt).toLocaleDateString();
-    const playerNames = match.players.map(p => p.name).join(', ');
+  const historyHtml = history.map((game, index) => {
+    const date = new Date(game.completedAt).toLocaleDateString();
+    const playerNames = game.players.map(p => p.name).join(', ');
 
     return `
-      <div class="card history-card" onclick="showMatchDetails(${index})">
-        <div class="list-item-title">${match.winner?.name || 'Unknown'} won</div>
+      <div class="card history-card" onclick="showGameDetails(${index})">
+        <div class="list-item-title">${game.winner?.name || 'Unknown'} won</div>
         <div class="list-item-subtitle">${playerNames}</div>
-        <div class="list-item-subtitle">${date} · ${match.rounds.length} rounds</div>
+        <div class="list-item-subtitle">${date} · ${game.rounds.length} rounds</div>
       </div>
     `;
   }).join('');
 
   container.innerHTML = `
     <div class="page">
-      <div class="section-header">Past Matches</div>
+      <div class="section-header">Past Games</div>
       ${historyHtml}
       ${history.length > 0 ? `
         <button class="btn btn-danger btn-full mt-16" onclick="clearHistory()">Clear All History</button>
@@ -379,16 +421,16 @@ function renderHistoryPage(container) {
   `;
 }
 
-function showMatchDetails(matchIndex) {
-  const history = getMatchHistory();
-  const match = history[matchIndex];
-  if (!match) return;
+function showGameDetails(gameIndex) {
+  const history = getGameHistory();
+  const game = history[gameIndex];
+  if (!game) return;
 
   const container = document.getElementById('main-content');
-  const date = new Date(match.completedAt).toLocaleDateString();
+  const date = new Date(game.completedAt).toLocaleDateString();
 
   // Sort players by final score
-  const sortedPlayers = [...match.players].sort((a, b) => a.totalScore - b.totalScore);
+  const sortedPlayers = [...game.players].sort((a, b) => a.totalScore - b.totalScore);
 
   // Build scorecard table
   let tableHtml = `
@@ -397,7 +439,7 @@ function showMatchDetails(matchIndex) {
         <div class="scorecard-cell scorecard-round">Round</div>
         ${sortedPlayers.map(p => `<div class="scorecard-cell">${p.name}</div>`).join('')}
       </div>
-      ${match.rounds.map(round => `
+      ${game.rounds.map(round => `
         <div class="scorecard-row">
           <div class="scorecard-cell scorecard-round">${round.roundNumber}</div>
           ${sortedPlayers.map(p => {
@@ -419,35 +461,35 @@ function showMatchDetails(matchIndex) {
 
   container.innerHTML = `
     <div class="page">
-      <div class="match-detail-header">
-        <h2>${match.winner?.name || 'Unknown'} Won!</h2>
-        <p class="text-muted">${date} · ${match.rounds.length} rounds</p>
+      <div class="game-detail-header">
+        <h2>${game.winner?.name || 'Unknown'} Won!</h2>
+        <p class="text-muted">${date} · ${game.rounds.length} rounds</p>
       </div>
       ${tableHtml}
       <button class="btn btn-secondary btn-full mt-16" onclick="renderHistoryPage(document.getElementById('main-content'))">Back to History</button>
-      <button class="btn btn-danger btn-full mt-16" onclick="deleteMatch(${matchIndex})">Delete This Match</button>
+      <button class="btn btn-danger btn-full mt-16" onclick="deleteGame(${gameIndex})">Delete This Game</button>
     </div>
   `;
 }
 
-function deleteMatch(matchIndex) {
-  const history = getMatchHistory();
-  history.splice(matchIndex, 1);
-  saveMatchHistory(history);
+function deleteGame(gameIndex) {
+  const history = getGameHistory();
+  history.splice(gameIndex, 1);
+  saveGameHistory(history);
   haptic();
-  showToast('Match deleted', 'success');
+  showToast('Game deleted', 'success');
   renderHistoryPage(document.getElementById('main-content'));
 }
 
 async function clearHistory() {
   const confirmed = await showConfirm(
     'Clear History',
-    'Are you sure you want to delete all match history? This cannot be undone.',
+    'Are you sure you want to delete all game history? This cannot be undone.',
     'Delete All',
     true
   );
   if (confirmed) {
-    saveMatchHistory([]);
+    saveGameHistory([]);
     haptic();
     showToast('History cleared', 'success');
     renderHistoryPage(document.getElementById('main-content'));
@@ -498,11 +540,11 @@ function renderSettingsPage(container) {
         </div>
         <div class="input-group">
           <label class="input-label">Max Score Per Round</label>
-          <input type="number" class="input" id="setting-max-game" value="${settings.maxScorePerGame}">
+          <input type="number" class="input" id="setting-max-round" value="${settings.maxScorePerGame}">
         </div>
         <div class="input-group">
-          <label class="input-label">Max Match Score (Out)</label>
-          <input type="number" class="input" id="setting-max-match" value="${settings.maxMatchScore}">
+          <label class="input-label">Max Game Score (Out)</label>
+          <input type="number" class="input" id="setting-max-game" value="${settings.maxGameScore}">
         </div>
         <button class="btn btn-primary btn-full" onclick="saveSettingsFromForm()">Save Settings</button>
       </div>
@@ -520,8 +562,8 @@ function saveSettingsFromForm() {
   const settings = {
     dropScore: parseInt(document.getElementById('setting-drop').value) || 25,
     middleDropScore: parseInt(document.getElementById('setting-middle-drop').value) || 50,
-    maxScorePerGame: parseInt(document.getElementById('setting-max-game').value) || 80,
-    maxMatchScore: parseInt(document.getElementById('setting-max-match').value) || 101
+    maxScorePerGame: parseInt(document.getElementById('setting-max-round').value) || 80,
+    maxGameScore: parseInt(document.getElementById('setting-max-game').value) || 101
   };
   saveSettings(settings);
   haptic();
@@ -550,42 +592,42 @@ function showPlayerStats(playerId) {
   const player = players.find(p => p.id === playerId);
   if (!player) return;
 
-  const history = getMatchHistory();
+  const history = getGameHistory();
 
   // Calculate stats
-  let matchesPlayed = 0;
+  let gamesPlayed = 0;
   let wins = 0;
   let totalFinalScore = 0;
   let drops = 0;
   let middleDrops = 0;
   let reentries = 0;
 
-  history.forEach(match => {
-    const matchPlayer = match.players.find(p => p.id === playerId);
-    if (!matchPlayer) return;
+  history.forEach(game => {
+    const gamePlayer = game.players.find(p => p.id === playerId);
+    if (!gamePlayer) return;
 
-    matchesPlayed++;
-    totalFinalScore += matchPlayer.totalScore;
+    gamesPlayed++;
+    totalFinalScore += gamePlayer.totalScore;
 
-    if (match.winner?.id === playerId) {
+    if (game.winner?.id === playerId) {
       wins++;
     }
 
     // Count re-entries
-    if (matchPlayer.reentryRounds) {
-      reentries += matchPlayer.reentryRounds.length;
+    if (gamePlayer.reentryRounds) {
+      reentries += gamePlayer.reentryRounds.length;
     }
 
-    // Count drops in this match
-    match.rounds.forEach(round => {
+    // Count drops in this game
+    game.rounds.forEach(round => {
       const score = round.scores[playerId];
-      if (score === match.settings.dropScore) drops++;
-      if (score === match.settings.middleDropScore) middleDrops++;
+      if (score === game.settings.dropScore) drops++;
+      if (score === game.settings.middleDropScore) middleDrops++;
     });
   });
 
-  const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
-  const avgScore = matchesPlayed > 0 ? Math.round(totalFinalScore / matchesPlayed) : 0;
+  const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
+  const avgScore = gamesPlayed > 0 ? Math.round(totalFinalScore / gamesPlayed) : 0;
 
   const container = document.getElementById('main-content');
   container.innerHTML = `
@@ -597,8 +639,8 @@ function showPlayerStats(playerId) {
 
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-value">${matchesPlayed}</div>
-          <div class="stat-label">Matches Played</div>
+          <div class="stat-value">${gamesPlayed}</div>
+          <div class="stat-label">Games Played</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">${wins}</div>
@@ -656,12 +698,12 @@ function deletePlayer(playerId) {
   }
 }
 
-// --- New Match Setup ---
-async function showNewMatchSetup() {
-  const activeMatch = getActiveMatch();
-  if (activeMatch) {
-    showToast('Please end the current match first', 'error');
-    navigateTo('match');
+// --- New Game Setup ---
+async function showNewGameSetup() {
+  const activeGame = getActiveGame();
+  if (activeGame) {
+    showToast('Please end the current game first', 'error');
+    navigateTo('game');
     return;
   }
 
@@ -692,33 +734,33 @@ async function showNewMatchSetup() {
         </div>
       </div>
 
-      <div class="section-header">Match Settings</div>
+      <div class="section-header">Game Settings</div>
       <div class="card">
         <div class="input-group">
           <label class="input-label">Drop Score</label>
-          <input type="number" class="input" id="match-drop" value="${settings.dropScore}">
+          <input type="number" class="input" id="game-drop" value="${settings.dropScore}">
         </div>
         <div class="input-group">
           <label class="input-label">Middle Drop Score</label>
-          <input type="number" class="input" id="match-middle-drop" value="${settings.middleDropScore}">
+          <input type="number" class="input" id="game-middle-drop" value="${settings.middleDropScore}">
         </div>
         <div class="input-group">
           <label class="input-label">Max Score Per Round</label>
-          <input type="number" class="input" id="match-max-game" value="${settings.maxScorePerGame}">
+          <input type="number" class="input" id="game-max-round" value="${settings.maxScorePerGame}">
         </div>
         <div class="input-group">
-          <label class="input-label">Max Match Score</label>
-          <input type="number" class="input" id="match-max-match" value="${settings.maxMatchScore}">
+          <label class="input-label">Max Game Score</label>
+          <input type="number" class="input" id="game-max-score" value="${settings.maxGameScore}">
         </div>
       </div>
 
-      <button class="btn btn-primary btn-full btn-large" onclick="startMatch()">Start Match</button>
+      <button class="btn btn-primary btn-full btn-large" onclick="startGame()">Start Game</button>
       <button class="btn btn-secondary btn-full mt-16" onclick="navigateTo('home')">Cancel</button>
     </div>
   `;
 }
 
-function startMatch() {
+function startGame() {
   const checkboxes = document.querySelectorAll('.player-select-cb:checked');
   const selectedIds = Array.from(checkboxes).map(cb => cb.value);
 
@@ -728,7 +770,7 @@ function startMatch() {
   }
 
   const allPlayers = getPlayers();
-  const matchPlayers = selectedIds.map(id => {
+  const gamePlayers = selectedIds.map(id => {
     const player = allPlayers.find(p => p.id === id);
     return {
       id: player.id,
@@ -740,38 +782,38 @@ function startMatch() {
     };
   });
 
-  const match = {
+  const game = {
     id: generateId(),
-    players: matchPlayers,
+    players: gamePlayers,
     settings: {
-      dropScore: parseInt(document.getElementById('match-drop').value) || 25,
-      middleDropScore: parseInt(document.getElementById('match-middle-drop').value) || 50,
-      maxScorePerGame: parseInt(document.getElementById('match-max-game').value) || 80,
-      maxMatchScore: parseInt(document.getElementById('match-max-match').value) || 101
+      dropScore: parseInt(document.getElementById('game-drop').value) || 25,
+      middleDropScore: parseInt(document.getElementById('game-middle-drop').value) || 50,
+      maxScorePerGame: parseInt(document.getElementById('game-max-round').value) || 80,
+      maxGameScore: parseInt(document.getElementById('game-max-score').value) || 101
     },
     rounds: [],
     status: 'active',
     createdAt: Date.now()
   };
 
-  saveActiveMatch(match);
+  saveActiveGame(game);
   haptic();
-  showToast('Match started!', 'success');
-  navigateTo('match');
+  showToast('Game started!', 'success');
+  navigateTo('game');
 }
 
 // --- Score Entry ---
 function showScoreEntry() {
-  const match = getActiveMatch();
-  if (!match) return;
+  const game = getActiveGame();
+  if (!game) return;
 
   const container = document.getElementById('main-content');
-  const activePlayers = match.players.filter(p => !p.isOut);
+  const activePlayers = game.players.filter(p => !p.isOut);
 
   const playersHtml = activePlayers.map(player => {
-    const margin = match.settings.maxMatchScore - player.totalScore;
-    const canDrop = margin > match.settings.dropScore;
-    const canMiddleDrop = margin > match.settings.middleDropScore;
+    const margin = game.settings.maxGameScore - player.totalScore;
+    const canDrop = margin > game.settings.dropScore;
+    const canMiddleDrop = margin > game.settings.middleDropScore;
 
     return `
       <div class="score-entry-player" data-player-id="${player.id}">
@@ -781,23 +823,23 @@ function showScoreEntry() {
         </div>
         <div class="score-entry-buttons">
           <button class="btn-score btn-winner" onclick="setScore('${player.id}', 0)">Win (0)</button>
-          ${canDrop ? `<button class="btn-score btn-drop" onclick="setScore('${player.id}', ${match.settings.dropScore})">Drop</button>` : ''}
-          ${canMiddleDrop ? `<button class="btn-score btn-mdrop" onclick="setScore('${player.id}', ${match.settings.middleDropScore})">M-Drop</button>` : ''}
+          ${canDrop ? `<button class="btn-score btn-drop" onclick="setScore('${player.id}', ${game.settings.dropScore})">Drop</button>` : ''}
+          ${canMiddleDrop ? `<button class="btn-score btn-mdrop" onclick="setScore('${player.id}', ${game.settings.middleDropScore})">M-Drop</button>` : ''}
         </div>
         <input type="number" class="input score-input" id="score-${player.id}"
-               placeholder="Enter score" min="0" max="${match.settings.maxScorePerGame}">
+               placeholder="Enter score" min="0" max="${game.settings.maxScorePerGame}">
       </div>
     `;
   }).join('');
 
   container.innerHTML = `
     <div class="page">
-      <div class="section-header">Round ${match.rounds.length + 1} Scores</div>
+      <div class="section-header">Round ${game.rounds.length + 1} Scores</div>
       <div class="score-entry-list">
         ${playersHtml}
       </div>
       <button class="btn btn-primary btn-full btn-large mt-16" onclick="submitScores()">Submit Scores</button>
-      <button class="btn btn-secondary btn-full mt-16" onclick="renderMatchPage(document.getElementById('main-content'))">Cancel</button>
+      <button class="btn btn-secondary btn-full mt-16" onclick="renderGamePage(document.getElementById('main-content'))">Cancel</button>
     </div>
   `;
 }
@@ -808,10 +850,10 @@ function setScore(playerId, score) {
 }
 
 async function submitScores() {
-  const match = getActiveMatch();
-  if (!match) return;
+  const game = getActiveGame();
+  if (!game) return;
 
-  const activePlayers = match.players.filter(p => !p.isOut);
+  const activePlayers = game.players.filter(p => !p.isOut);
   const scores = {};
   let hasWinner = false;
 
@@ -824,8 +866,8 @@ async function submitScores() {
       return;
     }
 
-    if (score > match.settings.maxScorePerGame) {
-      showToast(`${player.name}'s score cannot exceed ${match.settings.maxScorePerGame}`, 'error');
+    if (score > game.settings.maxScorePerGame) {
+      showToast(`${player.name}'s score cannot exceed ${game.settings.maxScorePerGame}`, 'error');
       return;
     }
 
@@ -839,41 +881,41 @@ async function submitScores() {
   }
 
   // Add round
-  match.rounds.push({
-    roundNumber: match.rounds.length + 1,
+  game.rounds.push({
+    roundNumber: game.rounds.length + 1,
     scores: scores,
     timestamp: Date.now()
   });
 
   // Update totals and check for out players
-  for (const player of match.players) {
+  for (const player of game.players) {
     if (scores[player.id] !== undefined) {
       player.totalScore += scores[player.id];
 
-      if (player.totalScore >= match.settings.maxMatchScore) {
+      if (player.totalScore >= game.settings.maxGameScore) {
         player.isOut = true;
         // Check for re-entry eligibility
-        await checkReentry(match, player);
+        await checkReentry(game, player);
       }
     }
   }
 
-  saveActiveMatch(match);
+  saveActiveGame(game);
   haptic();
   showToast('Round saved', 'success');
-  navigateTo('match');
+  navigateTo('game');
 }
 
-async function checkReentry(match, outPlayer) {
-  const activePlayers = match.players.filter(p => !p.isOut && p.id !== outPlayer.id);
+async function checkReentry(game, outPlayer) {
+  const activePlayers = game.players.filter(p => !p.isOut && p.id !== outPlayer.id);
   if (activePlayers.length === 0) return;
 
   // Find next highest score among active players
   const sortedActive = activePlayers.sort((a, b) => b.totalScore - a.totalScore);
   const nextHighest = sortedActive[0];
 
-  const margin = match.settings.maxMatchScore - nextHighest.totalScore;
-  const canReenter = margin > match.settings.dropScore;
+  const margin = game.settings.maxGameScore - nextHighest.totalScore;
+  const canReenter = margin > game.settings.dropScore;
 
   if (canReenter && outPlayer.canReenter) {
     const reenter = await showConfirm(
@@ -887,61 +929,61 @@ async function checkReentry(match, outPlayer) {
       outPlayer.canReenter = false; // Only one re-entry allowed
       // Track which round this re-entry happened
       outPlayer.reentryRounds = outPlayer.reentryRounds || [];
-      outPlayer.reentryRounds.push(match.rounds.length); // Current round number
-      saveActiveMatch(match);
+      outPlayer.reentryRounds.push(game.rounds.length); // Current round number
+      saveActiveGame(game);
       showToast(`${outPlayer.name} re-entered`, 'success');
     }
   }
 }
 
-function endMatch() {
-  const match = getActiveMatch();
-  if (!match) return;
+function endGame() {
+  const game = getActiveGame();
+  if (!game) return;
 
-  const activePlayers = match.players.filter(p => !p.isOut);
-  match.winner = activePlayers[0] || null;
-  match.status = 'completed';
-  match.completedAt = Date.now();
+  const activePlayers = game.players.filter(p => !p.isOut);
+  game.winner = activePlayers[0] || null;
+  game.status = 'completed';
+  game.completedAt = Date.now();
 
   // Save to history
-  const history = getMatchHistory();
-  history.unshift(match);
-  saveMatchHistory(history);
+  const history = getGameHistory();
+  history.unshift(game);
+  saveGameHistory(history);
 
-  // Clear active match
-  clearActiveMatch();
+  // Clear active game
+  clearActiveGame();
   haptic();
   navigateTo('home');
 }
 
-async function abandonMatch() {
+async function abandonGame() {
   const confirmed = await showConfirm(
-    'End Match Early?',
+    'End Game Early?',
     'Current standings will be saved to history.',
-    'End Match',
+    'End Game',
     true
   );
 
   if (!confirmed) return;
 
-  const match = getActiveMatch();
-  if (!match) return;
+  const game = getActiveGame();
+  if (!game) return;
 
   // Winner is player with lowest score
-  const sortedPlayers = [...match.players].sort((a, b) => a.totalScore - b.totalScore);
-  match.winner = sortedPlayers[0] || null;
-  match.status = 'abandoned';
-  match.completedAt = Date.now();
+  const sortedPlayers = [...game.players].sort((a, b) => a.totalScore - b.totalScore);
+  game.winner = sortedPlayers[0] || null;
+  game.status = 'abandoned';
+  game.completedAt = Date.now();
 
   // Save to history
-  const history = getMatchHistory();
-  history.unshift(match);
-  saveMatchHistory(history);
+  const history = getGameHistory();
+  history.unshift(game);
+  saveGameHistory(history);
 
-  // Clear active match
-  clearActiveMatch();
+  // Clear active game
+  clearActiveGame();
   haptic();
-  showToast('Match ended', 'success');
+  showToast('Game ended', 'success');
   navigateTo('home');
 }
 
@@ -1053,15 +1095,18 @@ async function showNumberPrompt(title, message, defaultValue = '', placeholder =
 
 // --- Initialize ---
 function init() {
+  // Run storage migration first
+  migrateStorage();
+
   // Set up navigation
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.page));
   });
 
-  // Check for active match and navigate accordingly
-  const activeMatch = getActiveMatch();
-  if (activeMatch) {
-    navigateTo('match');
+  // Check for active game and navigate accordingly
+  const activeGame = getActiveGame();
+  if (activeGame) {
+    navigateTo('game');
   } else {
     navigateTo('home');
   }
