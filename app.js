@@ -23,48 +23,6 @@ const STORAGE_KEYS = {
   gameHistory: 'rummy_game_history'
 };
 
-// --- Storage Migration (from old "match" keys to new "game" keys) ---
-function migrateStorage() {
-  // Migrate active game
-  const oldActiveGame = localStorage.getItem('rummy_active_match');
-  if (oldActiveGame && !localStorage.getItem(STORAGE_KEYS.activeGame)) {
-    const data = JSON.parse(oldActiveGame);
-    // Migrate maxMatchScore to maxGameScore in settings
-    if (data.settings && data.settings.maxMatchScore !== undefined) {
-      data.settings.maxGameScore = data.settings.maxMatchScore;
-      delete data.settings.maxMatchScore;
-    }
-    localStorage.setItem(STORAGE_KEYS.activeGame, JSON.stringify(data));
-    localStorage.removeItem('rummy_active_match');
-  }
-
-  // Migrate game history
-  const oldHistory = localStorage.getItem('rummy_match_history');
-  if (oldHistory && !localStorage.getItem(STORAGE_KEYS.gameHistory)) {
-    const history = JSON.parse(oldHistory);
-    // Migrate maxMatchScore to maxGameScore in each game's settings
-    history.forEach(game => {
-      if (game.settings && game.settings.maxMatchScore !== undefined) {
-        game.settings.maxGameScore = game.settings.maxMatchScore;
-        delete game.settings.maxMatchScore;
-      }
-    });
-    localStorage.setItem(STORAGE_KEYS.gameHistory, JSON.stringify(history));
-    localStorage.removeItem('rummy_match_history');
-  }
-
-  // Migrate settings
-  const settings = localStorage.getItem(STORAGE_KEYS.settings);
-  if (settings) {
-    const data = JSON.parse(settings);
-    if (data.maxMatchScore !== undefined) {
-      data.maxGameScore = data.maxMatchScore;
-      delete data.maxMatchScore;
-      localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(data));
-    }
-  }
-}
-
 // --- Storage Helpers ---
 function save(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
@@ -1095,9 +1053,6 @@ async function showNumberPrompt(title, message, defaultValue = '', placeholder =
 
 // --- Initialize ---
 function init() {
-  // Run storage migration first
-  migrateStorage();
-
   // Set up navigation
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.page));
