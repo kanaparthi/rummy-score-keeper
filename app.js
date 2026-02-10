@@ -735,7 +735,6 @@ function startGame() {
       name: player.name,
       totalScore: 0,
       isOut: false,
-      canReenter: true,
       reentryRounds: []
     };
   });
@@ -845,17 +844,23 @@ async function submitScores() {
     timestamp: Date.now()
   });
 
-  // Update totals and check for out players
+  // Update totals for all players first
+  const newlyOutPlayers = [];
   for (const player of game.players) {
     if (scores[player.id] !== undefined) {
       player.totalScore += scores[player.id];
 
-      if (player.totalScore >= game.settings.maxGameScore) {
+      if (player.totalScore >= game.settings.maxGameScore && !player.isOut) {
         player.isOut = true;
-        // Check for re-entry eligibility
-        await checkReentry(game, player);
+        newlyOutPlayers.push(player);
       }
     }
+  }
+
+  // Offer re-entry only in the same round the player goes out
+  // (players who already sat out a round cannot re-enter)
+  for (const outPlayer of newlyOutPlayers) {
+    await checkReentry(game, outPlayer);
   }
 
   saveActiveGame(game);
@@ -875,7 +880,7 @@ async function checkReentry(game, outPlayer) {
   const margin = game.settings.maxGameScore - nextHighest.totalScore;
   const canReenter = margin > game.settings.dropScore;
 
-  if (canReenter && outPlayer.canReenter) {
+  if (canReenter) {
     const reenter = await showConfirm(
       `${outPlayer.name} is Out!`,
       `Re-entry available. Take ${nextHighest.name}'s score (${nextHighest.totalScore})?`,
@@ -884,7 +889,6 @@ async function checkReentry(game, outPlayer) {
     if (reenter) {
       outPlayer.totalScore = nextHighest.totalScore;
       outPlayer.isOut = false;
-      outPlayer.canReenter = false; // Only one re-entry allowed
       // Track which round this re-entry happened
       outPlayer.reentryRounds = outPlayer.reentryRounds || [];
       outPlayer.reentryRounds.push(game.rounds.length); // Current round number
